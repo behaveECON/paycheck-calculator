@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Paystub Annualization</title>
+  <style>
+    :root {
+      --primary: #034251;
+      --secondary: #00ADEE;
+      --gray-100: #f8f9fa;
+      --gray-200: #e9ecef;
+      --gray-300: #dee2e6;
+      --shadow-md: 0 4px 6px rgba(0,0,0,0.1);
+      --radius: 8px;
+      --card-padding: 2rem;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 2rem;
+      background: var(--gray-100);
+      font-family: -apple-system,system-ui,sans-serif;
+      color: var(--primary);
+      line-height: 1.5;
+    }
+    #offlineBanner {
+      display: none;
+      position: fixed; top: 0; left: 0; right: 0;
+      background: #e63946; color: #fff;
+      text-align: center; padding: 0.5rem;
+      font-weight: 600; z-index: 1000;
+    }
+    .container { max-width: 1200px; margin: auto; }
+    .card {
+      background: #fff;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-md);
+      padding: var(--card-padding);
+      margin-bottom: 2rem;
+    }
+    .card-row { display: flex; gap: 1rem; margin-bottom: 1.5rem; }
+    .card-row .card { flex: 1; }
+    h2 { margin: 0 0 1rem; font-size: 1.5rem; font-weight: 600; }
+
+    /* Table */
+    table {
+      width: 100%; border-collapse: separate; border-spacing: 0;
+      margin-bottom: 1rem; background: #fff;
+    }
+    th, td {
+      padding: 0.75rem 1rem; border-bottom: 1px solid var(--gray-200);
+      text-align: right;
+    }
+    th {
+      background: var(--primary); color: #fff;
+      text-transform: uppercase; font-size: 0.85rem; font-weight: 500;
+    }
+    th:first-child, td:first-child { text-align: left; }
+    th:first-child { border-top-left-radius: var(--radius); }
+    th:last-child  { border-top-right-radius: var(--radius); }
+    tr:last-child td:first-child { border-bottom-left-radius: var(--radius); }
+    tr:last-child td:last-child  { border-bottom-right-radius: var(--radius); }
+
+    /* Inputs */
+    input[type="text"], select {
+      width: 100%; padding: 0.5rem; font-size: 0.95rem;
+      border: 1px solid var(--gray-300); border-radius: var(--radius);
+      transition: 0.2s; text-align: right;
+    }
+    #newCat, #newSource { text-align: left; }
+    input:focus, select:focus {
+      outline: none; border-color: var(--secondary);
+      box-shadow: 0 0 0 3px rgba(0,173,238,0.2);
+    }
+    .fixed-col { width: 12%; }
+
+    /* Toolbar */
+    .toolbar {
+      display: flex; align-items: center; gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    #addItemBtn { margin-left: auto; }
+    .toolbar .btn {
+      padding: 0.5rem 1rem; font-size: 0.85rem;
+      min-width: 7rem; justify-content: center;
+    }
+    .btn {
+      padding: 0.5rem 1rem;
+      background: var(--primary); color: #fff; border: none;
+      border-radius: var(--radius);
+      display: inline-flex; align-items: center; gap: 0.5rem;
+      font-weight: 500; cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
+    .btn:disabled { opacity: 0.5; cursor: default; }
+    .btn:hover:not(:disabled) {
+      background: var(--secondary); transform: translateY(-1px);
+    }
+
+    .checkbox-wrapper { display: flex; align-items: center; gap: 0.5rem; }
+
+    /* Check-work */
+    .check-work-card ul { list-style: none; margin: 0; padding: 0; }
+    .check-work-card li { margin-bottom: 0.5rem; }
+    .check-work-card li + li { margin-top: 1rem; }
+    .check-work-card span { font-weight: 600; }
+
+    .section-total td { background: var(--gray-100); font-weight: 600; }
+    .gross-wages td { background: var(--secondary); color: #fff; font-weight: 600; }
+
+    .btn-icon {
+      background: transparent; border: none; color: var(--gray-300);
+      padding: 0.25rem; font-size: 1rem; line-height: 1;
+      cursor: pointer; transition: color 0.2s; margin-left: 0.5rem;
+    }
+    .btn-icon:hover { color: var(--secondary); }
+  </style>
+</head>
+<body>
+  <div id="offlineBanner">You are currently offline.</div>
+  <div class="container">
+    <form id="payForm">
+      <div class="card-row">
+        <div class="card">
+          <h2>Assumptions</h2>
+          <table>
+            <tbody>
+              <tr>
+                <td><label for="frequency">Pay Frequency</label></td>
+                <td>
+                  <select id="frequency">
+                    <option value="52">Weekly (52)</option>
+                    <option value="26">Bi-Weekly (26)</option>
+                    <option value="24" selected>Semi-Monthly (24)</option>
+                    <option value="12">Monthly (12)</option>
+                    <option value="4">Quarterly (4)</option>
+                    <option value="2">Semi-Annually (2)</option>
+                    <option value="1">Annually (1)</option>
+                  </select>
+                </td>
+              </tr>
+              <tr>
+                <td><label for="recvd">Paychecks Received</label></td>
+                <td><input id="recvd" type="text" value="18"/></td>
+              </tr>
+              <tr>
+                <td><label for="filingStatus">Filing Status</label></td>
+                <td>
+                  <select id="filingStatus">
+                    <option value="single">Single</option>
+                    <option value="married">Married</option>
+                  </select>
+                </td>
+              </tr>
+              <tr>
+                <td colspan="2">
+                  <div class="checkbox-wrapper">
+                    <input id="nonrecCheckbox" type="checkbox"/>
+                    <label for="nonrecCheckbox">Include Non-Recurring Pay</label>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="card check-work-card">
+          <h2>Check Work</h2>
+          <ul>
+            <li>
+              <strong>Social Security</strong><br/>
+              Calculated: <span id="cw-ss-calc">$0</span><br/>
+              Annualized: <span id="cw-ss-exp">$0</span>
+            </li>
+            <li>
+              <strong>Medicare</strong><br/>
+              Calculated: <span id="cw-med-calc">$0</span><br/>
+              Annualized: <span id="cw-med-exp">$0</span>
+            </li>
+            <li>
+              <strong>Medicare Surtax</strong><br/>
+              Calculated: <span id="cw-surtax-calc">$0</span><br/>
+              Annualized: <span id="cw-surtax-exp">$0</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Line Items</h2>
+        <div class="toolbar">
+          <select id="newCat">
+            <option value="" disabled selected>Choose category…</option>
+            <option>Cash Compensation</option>
+            <option>Imputed Income</option>
+            <option>§125 Pre-Tax Deductions</option>
+            <option>Other Pre-Tax Deductions</option>
+            <option>After-Tax Deductions</option>
+            <option>Tax Withholding</option>
+          </select>
+          <select id="newSource" disabled>
+            <option value="" disabled selected>Choose source…</option>
+          </select>
+          <button id="addItemBtn" type="button" class="btn" disabled>＋ Add Item</button>
+          <button type="reset" class="btn">Clear Form</button>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th class="fixed-col">YTD</th>
+              <th class="fixed-col">Typical</th>
+              <th class="fixed-col">Recurring</th>
+              <th class="fixed-col">Non-Rec</th>
+              <th class="fixed-col">Annualized</th>
+            </tr>
+          </thead>
+          <tbody id="lines-body"></tbody>
+        </table>
+      </div>
+    </form>
+  </div>
+
+  <script>
+  (function(){
+    function updateOnlineStatus(){
+      document.getElementById('offlineBanner').style.display =
+        navigator.onLine ? 'none' : 'block';
+    }
+    window.addEventListener('online', updateOnlineStatus);
+    window.addEventListener('offline', updateOnlineStatus);
+    updateOnlineStatus();
+
+    const freqEl         = document.getElementById('frequency'),
+          recvdEl        = document.getElementById('recvd'),
+          filingStatusEl = document.getElementById('filingStatus'),
+          nonrecChk      = document.getElementById('nonrecCheckbox'),
+          newCatEl       = document.getElementById('newCat'),
+          newSourceEl    = document.getElementById('newSource'),
+          addBtn         = document.getElementById('addItemBtn'),
+          tbody          = document.getElementById('lines-body'),
+          form           = document.getElementById('payForm'),
+          fmt            = new Intl.NumberFormat('en-US',{
+                            style:'currency',
+                            currency:'USD',
+                            minimumFractionDigits: 0,
+                            maximumFractionDigits: 0
+                          });
+    let timer;
+    const parseNum = s => parseFloat((s||'').replace(/[^\d.-]/g,''))||0;
+
+    // All sources for each category (from your prompt)
+    const categorySources = {
+      'Cash Compensation': [
+        'Base Salary','Bonus','Cash Awards & Incentives','Commissions','Employer Assistance','Hazard Pay','Overtime Pay','Paid Time Off','Profit Sharing','Retroactive Pay','Severance Pay','Shift Differentials','Tips and Gratuities','Other Cash Compensation'
+      ],
+      'Imputed Income': [
+        'Group-Term Life Insurance','Accidental Death & Dismemberment (AD&D)','Dividend Equivalent','Employee Stock Purchase Plan (ESPP)','Excess Liabililty Insurance','Long-Term Disability Insurance','Non-Qualified Stock Options (NQSO)','Restricted Stock Units (RSU)','Short-Term Disability Insurance','Tax, Will, & Financial Counseling','Other Imputed Income'
+      ],
+      '§125 Pre-Tax Deductions': [
+        'Medical Insurance','Dental Insurance','Vision Insurance','Dependent Care Flexible Spending Account (FSA)','Health Flexible Spending Account (FSA)','Health Savings Account (HSA) Contribution','Other §125 Deductions'
+      ],
+      'Other Pre-Tax Deductions': [
+        '401(k), etc.','457 Contribution','Commuter Benefits Under IRC §132','Deferred Compensation Plan Contribution','Non-Section 125 Deductions','SIMPLE IRA Contribution','Other Pre-Tax Contributions'
+      ],
+      'After-Tax Deductions': [
+        'Roth 401(k), etc.','529 Contribution','Accident Plan','Accidental Death & Dismemberment (AD&D)','Charitable Contributions','Court-Ordered Deductions','Critical Illness','Employee Stock Purchase Plan (ESPP)','Employer Assistance','Excess Liabililty Insurance','Garnishments','Identity Theft Coverage','Legal Plan','Loan Repayments','Long-Term Care Insurance','Long-Term Disability Insurance','Non-Qualified Stock Options (NQSO)','Restricted Stock Units (RSU)','Short-Term Disability Insurance','Union Dues','Voluntary Dependent Life Insurance','Voluntary Life Insurance','Voluntary Spouse Life Insurance','Other After-Tax Deductions'
+      ],
+      'Tax Withholding': [
+        'Federal Taxes','Social Security','Medicare','Medicare Surtax','State Taxes','Local Taxes','Medicare Surtaxes','Other Tax Withholding'
+      ]
+    };
+
+    function debounceRecalc(){
+      clearTimeout(timer);
+      timer = setTimeout(recalc,100);
+    }
+    function wireInput(el){
+      el.addEventListener('blur', e=>{
+        const raw = parseNum(e.target.value);
+        e.target.value = raw ? fmt.format(raw) : '';
+        e.target.dataset.raw = raw;
+        debounceRecalc();
+      });
+      el.addEventListener('focus', e=>{
+        e.target.value = e.target.dataset.raw || '';
+      });
+      el.addEventListener('input', debounceRecalc);
+    }
+
+    function addRow(cat, desc){
+      // Prevent duplicate sources in the same category
+      const exists = Array.from(tbody.querySelectorAll(`tr[data-cat="${cat}"] td:first-child`))
+        .some(td => td.childNodes[0].textContent.trim() === desc);
+      if (exists) return;
+      const tr = document.createElement('tr');
+      tr.dataset.cat = cat;
+      tr.innerHTML = `
+        <td>${desc}
+          <button type="button" class="btn-icon edit-cat">✎</button>
+          <button type="button" class="btn-icon delete-item">×</button>
+        </td>
+        <td><input class="ytd" type="text"/></td>
+        <td><input class="typical" type="text"/></td>
+        <td class="recurring"></td>
+        <td><input class="nonrec" type="text"/></td>
+        <td class="annualized"></td>`;
+      const totalRow = document.querySelector(`tr.section-total[data-cat="${cat}"]`);
+      tbody.insertBefore(tr, totalRow);
+
+      // wire up inputs
+      tr.querySelectorAll('input').forEach(wireInput);
+
+      // enable/disable based on current checkbox
+      tr.querySelector('.nonrec').disabled = !nonrecChk.checked;
+    }
+
+    function addSectionTotal(cat){
+      const tr = document.createElement('tr');
+      tr.className = 'section-total';
+      tr.dataset.cat = cat;
+      tr.innerHTML = `
+        <td>${cat}</td>
+        <td class="sum-ytd"></td>
+        <td class="sum-typical"></td>
+        <td class="sum-recurring"></td>
+        <td class="sum-nonrec"></td>
+        <td class="sum-annualized"></td>`;
+      tbody.appendChild(tr);
+    }
+
+    function buildTable(){
+      tbody.innerHTML = '';
+      Object.keys(categorySources).forEach(cat=>{
+        addSectionTotal(cat);
+
+        // Add defaults
+        if(cat==='Cash Compensation') addRow(cat,'Base Salary');
+        if(cat==='Imputed Income') addRow(cat,'Group-Term Life Insurance');
+        if(cat==='§125 Pre-Tax Deductions') ['Medical Insurance','Dental Insurance','Vision Insurance'].forEach(i=>addRow(cat,i));
+        if(cat==='Other Pre-Tax Deductions') addRow(cat,'401(k), etc.');
+        if(cat==='After-Tax Deductions') addRow(cat,'Roth 401(k), etc.');
+        if(cat==='Tax Withholding') ['Federal Taxes','Social Security','Medicare','Medicare Surtax','State Taxes'].forEach(i=>addRow(cat,i));
+
+        // Add rollup rows
+        if(cat==='Imputed Income'){
+          const r=document.createElement('tr'); r.className='gross-wages';
+          r.innerHTML=`
+            <td>GROSS WAGES</td>
+            <td class="gw-ytd"></td><td class="gw-typical"></td>
+            <td class="gw-recurring"></td><td class="gw-nonrec"></td>
+            <td class="gw-annualized"></td>`;
+          tbody.appendChild(r);
+        }
+        if(cat==='§125 Pre-Tax Deductions'){
+          const r=document.createElement('tr'); r.className='gross-wages medicare-wages';
+          r.innerHTML=`
+            <td>MEDICARE WAGES</td>
+            <td class="mw-ytd"></td><td class="mw-typical"></td>
+            <td class="mw-recurring"></td><td class="mw-nonrec"></td>
+            <td class="mw-annualized"></td>`;
+          tbody.appendChild(r);
+        }
+        if(cat==='Other Pre-Tax Deductions'){
+          const r=document.createElement('tr'); r.className='gross-wages taxable-wages';
+          r.innerHTML=`
+            <td>TAXABLE WAGES</td>
+            <td class="tw-ytd"></td><td class="tw-typical"></td>
+            <td class="tw-recurring"></td><td class="tw-nonrec"></td>
+            <td class="tw-annualized"></td>`;
+          tbody.appendChild(r);
+        }
+        if(cat==='Tax Withholding'){
+          const r=document.createElement('tr'); r.className='gross-wages net-pay';
+          r.innerHTML=`
+            <td>NET PAY</td>
+            <td class="np-ytd"></td><td class="np-typical"></td>
+            <td class="np-recurring"></td><td class="np-nonrec"></td>
+            <td class="np-annualized"></td>`;
+          tbody.appendChild(r);
+        }
+      });
+    }
+
+    function recalc(){
+      const freqVal=parseNum(freqEl.dataset.raw||freqEl.value),
+            recvdVal=parseNum(recvdEl.dataset.raw||recvdEl.value),
+            rem=Math.max(0,freqVal-recvdVal);
+
+      tbody.querySelectorAll('tr').forEach(tr=>{
+        const yEl=tr.querySelector('.ytd'); if(!yEl)return;
+        const y=parseNum(yEl.dataset.raw||yEl.value),
+              t=parseNum(tr.querySelector('.typical').dataset.raw||tr.querySelector('.typical').value),
+              nr=tr.querySelector('.nonrec'),
+              n=nr&&!nr.disabled?parseNum(nr.dataset.raw||nr.value):0,
+              r=t*rem,
+              ann=y+r+n;
+        tr.querySelector('.recurring').textContent=fmt.format(r);
+        tr.querySelector('.annualized').textContent=fmt.format(ann);
+      });
+
+      const mwAnn=parseNum(document.querySelector('tr.medicare-wages .mw-annualized').textContent);
+
+      // Social Security
+      const ssCap=176100, calcSS=Math.min(mwAnn,ssCap)*0.062;
+      document.getElementById('cw-ss-calc').textContent=fmt.format(Math.round(calcSS));
+      const ssRow=Array.from(document.querySelectorAll('tr[data-cat="Tax Withholding"]'))
+        .find(rw=>rw.querySelector('td').firstChild.nodeValue.trim()==='Social Security');
+      document.getElementById('cw-ss-exp').textContent=ssRow?ssRow.querySelector('.annualized').textContent:'';
+
+      // Medicare
+      const calcMed=mwAnn*0.0145;
+      document.getElementById('cw-med-calc').textContent=fmt.format(Math.round(calcMed));
+      const medRow=Array.from(document.querySelectorAll('tr[data-cat="Tax Withholding"]'))
+        .find(rw=>rw.querySelector('td').firstChild.nodeValue.trim()==='Medicare');
+      document.getElementById('cw-med-exp').textContent=medRow?medRow.querySelector('.annualized').textContent:'';
+
+      // Surtax
+      const thresholdMed=filingStatusEl.value==='married'?250000:200000,
+            calcSurtax=Math.max(0,mwAnn-thresholdMed)*0.009;
+      document.getElementById('cw-surtax-calc').textContent=fmt.format(Math.round(calcSurtax));
+      const surtaxRow=Array.from(document.querySelectorAll('tr[data-cat="Tax Withholding"]'))
+        .find(rw=>rw.querySelector('td').firstChild.nodeValue.trim()==='Medicare Surtax');
+      document.getElementById('cw-surtax-exp').textContent=surtaxRow?surtaxRow.querySelector('.annualized').textContent:'';
+
+      // section totals & roll-ups
+      document.querySelectorAll('tr.section-total').forEach(sec=>{
+        const cat=sec.dataset.cat;
+        let sy=0,st=0,sr=0,sn=0,sa=0;
+        tbody.querySelectorAll(`tr[data-cat="${cat}"]`).forEach(rw=>{
+          if(rw.classList.contains('section-total'))return;
+          sy+=parseNum(rw.querySelector('.ytd').dataset.raw||rw.querySelector('.ytd').value);
+          st+=parseNum(rw.querySelector('.typical').dataset.raw||rw.querySelector('.typical').value);
+          sr+=parseNum(rw.querySelector('.recurring').textContent);
+          const n2=rw.querySelector('.nonrec');
+          sn+=n2&&!n2.disabled?parseNum(n2.dataset.raw||n2.value):0;
+          sa+=parseNum(rw.querySelector('.annualized').textContent);
+        });
+        ['ytd','typical','recurring','nonrec','annualized'].forEach(f=>{
+          sec.querySelector(`.sum-${f}`).textContent=fmt.format({ytd:sy,typical:st,recurring:sr,nonrec:sn,annualized:sa}[f]);
+        });
+      });
+
+      const sumVal=(c,f)=>parseNum(
+        document.querySelector(`tr.section-total[data-cat="${c}"] .sum-${f}`).textContent
+      );
+      const gwRow=document.querySelector('tr.gross-wages'),
+            mwRow=document.querySelector('tr.medicare-wages'),
+            twRow=document.querySelector('tr.taxable-wages'),
+            npRow=document.querySelector('tr.net-pay');
+
+      ['ytd','typical','recurring','nonrec','annualized'].forEach(f=>{
+        gwRow.querySelector(`.gw-${f}`).textContent=fmt.format(
+          sumVal('Cash Compensation',f)+sumVal('Imputed Income',f)
+        );
+        mwRow.querySelector(`.mw-${f}`).textContent=fmt.format(
+          sumVal('Cash Compensation',f)+sumVal('Imputed Income',f)-sumVal('§125 Pre-Tax Deductions',f)
+        );
+        twRow.querySelector(`.tw-${f}`).textContent=fmt.format(
+          parseNum(mwRow.querySelector(`.mw-${f}`).textContent)-sumVal('Other Pre-Tax Deductions',f)
+        );
+        const net =
+          sumVal('Cash Compensation',f)
+          - sumVal('§125 Pre-Tax Deductions',f)
+          - sumVal('Other Pre-Tax Deductions',f)
+          - sumVal('After-Tax Deductions',f)
+          - sumVal('Tax Withholding',f);
+        npRow.querySelector(`.np-${f}`).textContent=fmt.format(net);
+      });
+    }
+
+    function updateSourceDropdown() {
+      const cat = newCatEl.value;
+      newSourceEl.innerHTML = '<option value="" disabled selected>Choose source…</option>';
+      newSourceEl.disabled = !categorySources.hasOwnProperty(cat);
+      if (categorySources.hasOwnProperty(cat)) {
+        categorySources[cat].forEach(source => {
+          const opt = document.createElement('option');
+          opt.value = source;
+          opt.textContent = source;
+          newSourceEl.appendChild(opt);
+        });
+      }
+      addBtn.disabled = true;
+    }
+
+    function toggleAddEnabled(){
+      addBtn.disabled = !(categorySources.hasOwnProperty(newCatEl.value) && newSourceEl.value);
+    }
+
+    newCatEl.addEventListener('change', function() {
+      updateSourceDropdown();
+      toggleAddEnabled();
+    });
+
+    newSourceEl.addEventListener('change', toggleAddEnabled);
+
+    addBtn.addEventListener('click', ()=>{
+      const cat = newCatEl.value;
+      const desc = newSourceEl.value;
+      if (!categorySources.hasOwnProperty(cat) || !desc) return;
+      addRow(cat, desc);
+      newSourceEl.selectedIndex = 0;
+      addBtn.disabled = true;
+      recalc();
+    });
+
+    nonrecChk.addEventListener('change', ()=>{
+      const disabled=!nonrecChk.checked;
+      tbody.querySelectorAll('input.nonrec').forEach(i=>i.disabled=disabled);
+      recalc();
+    });
+
+    form.addEventListener('reset', ()=>{
+      setTimeout(()=>{
+        buildTable();
+        nonrecChk.checked=false;
+        tbody.querySelectorAll('input.nonrec').forEach(i=>i.disabled=true);
+        updateSourceDropdown();
+        recalc();
+      }, 0);
+    });
+
+    freqEl.addEventListener('input', debounceRecalc);
+    recvdEl.addEventListener('input', debounceRecalc);
+    filingStatusEl.addEventListener('change', recalc);
+
+    // Edit and Delete Button Functionality
+    tbody.addEventListener('click', function(e) {
+      // Delete row
+      if (e.target.classList.contains('delete-item')) {
+        const tr = e.target.closest('tr');
+        if (tr) tr.remove();
+        recalc();
+      }
+      // Edit description
+      if (e.target.classList.contains('edit-cat')) {
+        const td = e.target.closest('td');
+        if (!td) return;
+        const descNode = td.childNodes[0];
+        const current = descNode.textContent.trim();
+        const updated = prompt('Edit description:', current);
+        if (updated !== null && updated.trim() !== '') {
+          descNode.textContent = updated.trim();
+        }
+      }
+    });
+
+    buildTable();
+    updateSourceDropdown();
+    recalc();
+  })();
+  </script>
+</body>
+</html>
